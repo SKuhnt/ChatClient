@@ -50,9 +50,6 @@ public class ChatClient {
 
                     /* Sende den String als UDP-Paket zum Server */
                     udpClient.writeToServer(userId + Config.UDP_SPLIT_OPERATOR + sentence);
-
-                    /* Modifizierten String vom Server empfangen */
-                    udpClient.readFromServer();
                 }
             }
 
