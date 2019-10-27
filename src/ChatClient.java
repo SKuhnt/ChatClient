@@ -16,7 +16,7 @@ public class ChatClient {
     public ChatClient(String hostname, int serverPort, String userName) {
         this.userName = userName;
         this.tcpClient = new TCPClient(hostname, serverPort);
-        this.udpClient = new UDPClient();
+        this.udpClient = new UDPClient(hostname);
     }
 
     public void startJob() {
@@ -35,7 +35,8 @@ public class ChatClient {
                     auth = false;
                 }
             }
-
+            ReadThread readThread = new ReadThread(udpClient);
+            readThread.start();
             /* Konsolenstream (Standardeingabe) initialisieren */
             inFromUser = new Scanner(System.in);
             while (serviceRequested) {
@@ -51,7 +52,7 @@ public class ChatClient {
                     udpClient.writeToServer(userId + Config.UDP_SPLIT_OPERATOR + sentence);
 
                     /* Modifizierten String vom Server empfangen */
-                    System.out.println(udpClient.readFromServer());
+                    udpClient.readFromServer();
                 }
             }
 
@@ -70,10 +71,11 @@ class UDPClient {
     private DatagramSocket clientSocket; // UDP-Socketklasse
     private InetAddress serverIpAddress; // IP-Adresse des Zielservers
 
-    UDPClient(){
+    UDPClient(String hostname){
+        System.out.println(hostname);
         try {
             clientSocket = new DatagramSocket(Config.UDP_CLIENT_PORT);
-            serverIpAddress = InetAddress.getByName("localhost"); // Zieladresse
+            serverIpAddress = InetAddress.getByName(hostname); // Zieladresse
         } catch (Exception ex){
 
         }
@@ -106,9 +108,7 @@ class UDPClient {
         /* Paket wurde empfangen --> auspacken und Inhalt anzeigen */
         receiveString = new String(receivePacket.getData(), 0,
                 receivePacket.getLength());
-
         System.out.println(receiveString);
-
         return receiveString;
     }
 }
@@ -147,5 +147,23 @@ class TCPClient{
 
     protected void closeConnection() throws IOException{
         clientSocket.close();
+    }
+}
+class ReadThread extends Thread{
+
+    private final UDPClient UDPCLIENT;
+
+    protected ReadThread(UDPClient udpClient){
+        this.UDPCLIENT = udpClient;
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true){
+                this.UDPCLIENT.readFromServer();
+            }
+        } catch (Exception ex){
+        }
     }
 }
