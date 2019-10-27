@@ -168,11 +168,9 @@ class UDPServer {
                 String reponse = "";
                 String[] requests = message.split(SPLIT_OPERATOR);
                 if (requests.length == 2){
-                    reponse += getChatUser(requests[0]).getUserName() + ": " + requests[1];
+                    reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
                     writeToAllUsers(reponse);
                 } else {
-                    //toDo this could be improved?
-                    //throw new IllegalArgumentException();
                     writeToClient("Something went wrong.");
                 }
             }
