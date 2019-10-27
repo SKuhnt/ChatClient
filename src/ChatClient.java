@@ -72,7 +72,6 @@ class UDPClient {
     private InetAddress serverIpAddress; // IP-Adresse des Zielservers
 
     UDPClient(String hostname){
-        System.out.println(hostname);
         try {
             clientSocket = new DatagramSocket(Config.UDP_CLIENT_PORT);
             serverIpAddress = InetAddress.getByName(hostname); // Zieladresse
