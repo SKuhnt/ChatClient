@@ -6,7 +6,7 @@ public class Config {
     static {
         InetAddress localHost;
         try {
-            localHost = InetAddress.getByName("localhost");
+            localHost = InetAddress.getLocalHost();
         } catch (UnknownHostException e) {
             localHost = null;
             e.printStackTrace();
