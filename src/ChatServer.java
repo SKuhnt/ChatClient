@@ -196,7 +196,7 @@ class UDPServer {
     }
 
     private String getAllUsersString(){
-        return ChatServer.idChatUserMap.values().stream().map(g -> g.getUserName()).reduce("",(chatUser, acc) -> chatUser + acc);
+        return ChatServer.idChatUserMap.values().stream().map(ChatUser::getUserName).reduce("",(acc, userName) -> (acc.isEmpty() ? acc : acc + "\n") + userName);
     }
 
     private String readFromClient() throws IOException {
