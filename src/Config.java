@@ -20,6 +20,8 @@ public class Config {
     public static final int UDP_BUFFER_SIZE = 1024;
     public static final String UDP_SPLIT_OPERATOR = "\r\n";
     public static final int TCP_SERVER_PORT = 56789;
+    public static final String SHOW_ALL_USERS_COMMAND = "getUsers!";
+
 
 
 }

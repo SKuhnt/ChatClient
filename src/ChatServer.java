@@ -168,8 +168,12 @@ class UDPServer {
                 String reponse = "";
                 String[] requests = message.split(SPLIT_OPERATOR);
                 if (requests.length == 2){
-                    reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
-                    writeToAllUsers(reponse);
+                    if(requests[1].equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
+                        writeToClient(getAllUsersString());
+                    } else {
+                        reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
+                        writeToAllUsers(reponse);
+                    }
                 } else {
                     writeToClient("Something went wrong.");
                 }
@@ -189,6 +193,10 @@ class UDPServer {
 
     private ChatUser getChatUser(String Id){
         return ChatServer.idChatUserMap.get(Long.valueOf(Id));
+    }
+
+    private String getAllUsersString(){
+        return ChatServer.idChatUserMap.values().stream().map(g -> g.getUserName()).reduce("",(chatUser, acc) -> chatUser + acc);
     }
 
     private String readFromClient() throws IOException {

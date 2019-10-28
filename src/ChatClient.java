@@ -31,7 +31,7 @@ public class ChatClient {
             while (auth) {
                 tcpClient.writeToServer(userName);
                 userId = tcpClient.readFromServer();
-                if(!userId.isBlank() && !userId.isEmpty()){
+                if(!userId.isEmpty()){
                     auth = false;
                 }
             }
