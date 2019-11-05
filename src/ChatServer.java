@@ -171,7 +171,7 @@ class UDPServer {
                 String reponse = "";
                 String[] requests = message.split(SPLIT_OPERATOR);
                 if (requests.length == 2){
-                    if(requests[1].getBytes(Config.CHARSET).equals(Config.SHOW_ALL_USERS_COMMAND.getBytes(Charset.defaultCharset()))){
+                    if(requests[1].trim().equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
                         writeToClient(getAllUsersString());
                     } else {
                         reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
