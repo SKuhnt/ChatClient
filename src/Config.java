@@ -1,5 +1,7 @@
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 public class Config {
     public static final InetAddress LOCALHOST;
@@ -21,6 +23,7 @@ public class Config {
     public static final String UDP_SPLIT_OPERATOR = "\r\n";
     public static final int TCP_SERVER_PORT = 56789;
     public static final String SHOW_ALL_USERS_COMMAND = "getUsers!";
+    public static final Charset CHARSET = StandardCharsets.US_ASCII;
 
 
 

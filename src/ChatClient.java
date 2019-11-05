@@ -73,7 +73,7 @@ class UDPClient {
             clientSocket = new DatagramSocket(Config.UDP_CLIENT_PORT);
             serverIpAddress = InetAddress.getByName(hostname); // Zieladresse
         } catch (Exception ex){
-
+            //todo handle exception
         }
     }
 
@@ -81,7 +81,7 @@ class UDPClient {
         /* Sende den String als UDP-Paket zum Server */
 
         /* String in Byte-Array umwandeln */
-        byte[] sendData = sendString.getBytes();
+        byte[] sendData = sendString.getBytes(Config.CHARSET);
 
         /* Paket erzeugen */
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
@@ -102,8 +102,7 @@ class UDPClient {
         clientSocket.receive(receivePacket);
 
         /* Paket wurde empfangen --> auspacken und Inhalt anzeigen */
-        receiveString = new String(receivePacket.getData(), 0,
-                receivePacket.getLength());
+        receiveString = new String(receivePacket.getData(), Config.CHARSET);
         System.out.println(receiveString);
         return receiveString;
     }
@@ -122,7 +121,7 @@ class TCPClient{
             /* Socket-Basisstreams durch spezielle Streams filtern */
             outToServer = new DataOutputStream(clientSocket.getOutputStream());
             inFromServer = new BufferedReader(new InputStreamReader(
-                    clientSocket.getInputStream()));
+                    clientSocket.getInputStream(),Config.CHARSET));
 
             /* Socket-Streams schliessen --> Verbindungsabbau */
         } catch (IOException e) {
@@ -132,7 +131,7 @@ class TCPClient{
 
     protected void writeToServer(String request) throws IOException {
         /* Sende eine Zeile (mit CRLF) zum Server */
-        outToServer.writeBytes(request + '\r' + '\n');
+        outToServer.write((request + '\r' + '\n').getBytes(Config.CHARSET));
     }
 
     protected String readFromServer() throws IOException {
@@ -160,6 +159,7 @@ class ReadThread extends Thread{
                 this.UDPCLIENT.readFromServer();
             }
         } catch (Exception ex){
+            //todo handle exception
         }
     }
 }

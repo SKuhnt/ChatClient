@@ -1,5 +1,7 @@
 import java.io.*;
 import java.net.*;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -97,7 +99,7 @@ class TCPWorkerThread extends Thread {
 
         try {
             /* Socket-Basisstreams durch spezielle Streams filtern */
-            inFromClient = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            inFromClient = new BufferedReader(new InputStreamReader(socket.getInputStream(),Config.CHARSET));
             outToClient = new DataOutputStream(socket.getOutputStream());
 
             while (workerServiceRequested) {
@@ -111,6 +113,7 @@ class TCPWorkerThread extends Thread {
                 workerServiceRequested = false;
             }
 
+            //todo how to make the thread stay alive ?
             boolean connectionOpen = true;
             while (connectionOpen){
                 readFromClient();
@@ -168,7 +171,7 @@ class UDPServer {
                 String reponse = "";
                 String[] requests = message.split(SPLIT_OPERATOR);
                 if (requests.length == 2){
-                    if(requests[1].equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
+                    if(requests[1].getBytes(Config.CHARSET).equals(Config.SHOW_ALL_USERS_COMMAND.getBytes(Charset.defaultCharset()))){
                         writeToClient(getAllUsersString());
                     } else {
                         reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
@@ -214,7 +217,7 @@ class UDPServer {
         receivedPort = receivePacket.getPort();
 
         /* Paket erhalten --> auspacken und analysieren */
-        receiveString = new String(receivePacket.getData(), 0, receivePacket.getLength());
+        receiveString = new String(receivePacket.getData(), Config.CHARSET);
 
         return receiveString;
     }
@@ -223,7 +226,7 @@ class UDPServer {
         /* Sende den String als UDP-Paket zum Client */
 
         /* String in Byte-Array umwandeln */
-        byte[] sendData = sendString.getBytes();
+        byte[] sendData = sendString.getBytes(Config.CHARSET);
 
         /* Antwort-Paket erzeugen */
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
