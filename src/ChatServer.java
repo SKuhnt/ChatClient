@@ -2,9 +2,12 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 public class ChatServer {
 
@@ -32,6 +35,8 @@ class TCPServer{
 
     /* Anzeige, ob der Server-Dienst weiterhin benoetigt wird */
     public boolean serviceRequested = true;
+
+    public List<TCPWorkerThread> threadList = new ArrayList<>();
 
     /* Konstruktor mit Parametern: Server-Port, Maximale Anzahl paralleler Worker-Threads*/
     public TCPServer(int serverPort, int maxThreads) {
@@ -63,7 +68,9 @@ class TCPServer{
 
 
                 /* Neuen Arbeits-Thread erzeugen und die Nummer, den Socket sowie das Serverobjekt uebergeben */
-                (new TCPWorkerThread(nextThreadNumber++, connectionSocket, this)).start();
+                TCPWorkerThread newWorker = (new TCPWorkerThread(nextThreadNumber++, connectionSocket, this));
+                newWorker.start();
+                threadList.add(newWorker);
             }
         } catch (Exception e) {
             System.err.println(e.toString());
@@ -107,13 +114,14 @@ class TCPWorkerThread extends Thread {
                 String name = readFromClient();
                 ChatServer.idChatUserMap.put(this.getId(), new ChatUser(name, socket.getInetAddress()));
                 /* Modifizierten String an Client senden */
-                writeToClient(String.valueOf(currentThread().getId()));
-
+                //writeToClient(String.valueOf(currentThread().getId()));
+                writeToClient(initialSetupString(currentThread().getId()));
+                broadCastToAllUsers(userConnectedString(currentThread().getId()));
                 /* Test, ob Arbeitsthread beendet werden soll */
                 workerServiceRequested = false;
             }
 
-            //todo how to make the thread stay alive ?
+
             boolean connectionOpen = true;
             while (connectionOpen){
                 readFromClient();
@@ -127,9 +135,44 @@ class TCPWorkerThread extends Thread {
         } finally {
             System.out.println("TCP Worker Thread " + name + " stopped!");
             /* Platz fuer neuen Thread freigeben */
-            server.workerThreadsSem.release();
+            broadCastToAllUsers(userDisconnectedString(this.getId()));
             ChatServer.idChatUserMap.remove(this.getId());
+            server.threadList.remove(this);
+            server.workerThreadsSem.release();
         }
+    }
+
+    private String connectedUsersMapToString(){
+        String res = ChatServer.idChatUserMap.entrySet().stream().map(kv -> kv.getKey()+Config.INLINE_SEPERATOR+kv.getValue().getUserName()+Config.INLINE_SEPERATOR+kv.getValue().getInetAddress()).collect(Collectors.joining(Config.UDP_SPLIT_OPERATOR));
+        return res;
+    }
+
+    private String userDisconnectedString(Long id){
+        String res = Config.HEADLINE_START+Config.UDP_SPLIT_OPERATOR+Commands.DISCONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
+        //ChatUser user = ChatServer.idChatUserMap.get(id);
+        return res+id+Config.UDP_SPLIT_OPERATOR;
+    }
+
+    private String userConnectedString(Long id){
+        String res = Config.HEADLINE_START+Config.UDP_SPLIT_OPERATOR+Commands.CONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
+        ChatUser user = ChatServer.idChatUserMap.get(id);
+        return res+id+Config.UDP_SPLIT_OPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddress()+Config.UDP_SPLIT_OPERATOR;
+    }
+
+    private void broadCastToAllUsers(String msg){
+        server.threadList.stream().forEach(s-> {
+            try {
+                s.writeToClient(msg);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private String initialSetupString(Long id){
+        String res = Config.HEADLINE_START+Config.UDP_SPLIT_OPERATOR+Commands.FULLTABLE.name()+Config.UDP_SPLIT_OPERATOR;
+        ChatUser user = ChatServer.idChatUserMap.get(id);
+        return res+id+Config.INLINE_SEPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddress()+Config.UDP_SPLIT_OPERATOR+connectedUsersMapToString()+Config.UDP_SPLIT_OPERATOR;
     }
 
     private String readFromClient() throws IOException {

@@ -1,5 +1,8 @@
 import java.io.*;
 import java.net.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 public class ChatClient {
@@ -12,11 +15,27 @@ public class ChatClient {
     private final String userName;
     private final TCPClient tcpClient;
     private final UDPClient udpClient;
+    private Map<Long,ChatUser> userMap;
 
     public ChatClient(String hostname, int serverPort, String userName) {
         this.userName = userName;
         this.tcpClient = new TCPClient(hostname, serverPort);
         this.udpClient = new UDPClient(hostname);
+        this.userMap = new HashMap<>();
+    }
+
+    public void addUsersToUserMap(String usersString){
+        String[] userLines = usersString.split(Config.UDP_SPLIT_OPERATOR);
+        Arrays.stream(userLines).forEach(userLine -> {
+            String[] userData = userLine.split(Config.INLINE_SEPERATOR);
+            if(userData.length==3){
+                try {
+                    userMap.put(Long.parseLong(userData[0]),new ChatUser(userData[1],InetAddress.getByName(userData[2])));
+                } catch (UnknownHostException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
     }
 
     public void startJob() {
@@ -127,6 +146,7 @@ class TCPClient{
         } catch (IOException e) {
             System.err.println("Connection aborted by server!");
         }
+
     }
 
     protected void writeToServer(String request) throws IOException {
