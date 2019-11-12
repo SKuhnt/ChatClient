@@ -1,7 +1,5 @@
 import java.io.*;
 import java.net.*;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +17,7 @@ public class ChatServer {
     /* TCP-Server, der Verbindungsanfragen entgegennimmt */
     public static final Map<Long, ChatUser> idChatUserMap = new HashMap<>();
 
-    ChatServer(){
+    private ChatServer(){
         TCPServer myServer = new TCPServer(Config.TCP_SERVER_PORT, 10);
         myServer.startServer();
     }
@@ -28,15 +26,12 @@ public class ChatServer {
 class TCPServer{
 
     /* Semaphore begrenzt die Anzahl parallel laufender Worker-Threads  */
-    public Semaphore workerThreadsSem;
+    public final Semaphore workerThreadsSem;
 
     /* Portnummer */
-    public final int serverPort;
+    private final int serverPort;
 
-    /* Anzeige, ob der Server-Dienst weiterhin benoetigt wird */
-    public boolean serviceRequested = true;
-
-    public List<TCPWorkerThread> threadList = new ArrayList<>();
+    public final List<TCPWorkerThread> threadList = new ArrayList<>();
 
     /* Konstruktor mit Parametern: Server-Port, Maximale Anzahl paralleler Worker-Threads*/
     public TCPServer(int serverPort, int maxThreads) {
@@ -54,6 +49,8 @@ class TCPServer{
             /* Server-Socket erzeugen */
             welcomeSocket = new ServerSocket(serverPort);
 
+            /* Anzeige, ob der Server-Dienst weiterhin benoetigt wird */
+            boolean serviceRequested = true;
             while (serviceRequested) {
                 workerThreadsSem.acquire();  // Blockieren, wenn max. Anzahl Worker-Threads erreicht
 
@@ -84,9 +81,9 @@ class TCPWorkerThread extends Thread {
      * Arbeitsthread, der eine existierende Socket-Verbindung zur Bearbeitung
      * erhaelt
      */
-    private int name;
-    private Socket socket;
-    private TCPServer server;
+    private final int name;
+    private final Socket socket;
+    private final TCPServer server;
     private BufferedReader inFromClient;
     private DataOutputStream outToClient;
     private boolean workerServiceRequested = true; // Arbeitsthread beenden?
@@ -139,8 +136,7 @@ class TCPWorkerThread extends Thread {
     }
 
     private String connectedUsersMapToString(){
-        String res = ChatServer.idChatUserMap.entrySet().stream().map(kv -> kv.getKey()+Config.INLINE_SEPERATOR+kv.getValue().getUserName()+Config.INLINE_SEPERATOR+kv.getValue().getInetAddressString()+Config.INLINE_SEPERATOR+kv.getValue().getPort()).collect(Collectors.joining(Config.UDP_SPLIT_OPERATOR));
-        return res;
+        return ChatServer.idChatUserMap.entrySet().stream().map(kv -> kv.getKey()+Config.INLINE_SEPERATOR+kv.getValue().getUserName()+Config.INLINE_SEPERATOR+kv.getValue().getInetAddressString()+Config.INLINE_SEPERATOR+kv.getValue().getPort()).collect(Collectors.joining(Config.UDP_SPLIT_OPERATOR));
     }
 
     private String userDisconnectedString(Long id){
@@ -156,7 +152,7 @@ class TCPWorkerThread extends Thread {
     }
 
     private void broadCastToAllUsers(String msg){
-        server.threadList.stream().forEach(s-> {
+        server.threadList.forEach(s-> {
             try {
                 s.writeToClient(msg);
             } catch (IOException e) {

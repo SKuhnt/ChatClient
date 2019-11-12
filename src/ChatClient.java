@@ -19,14 +19,14 @@ public class ChatClient {
     private final UDPClient udpClient;
     public final Map<Long,ChatUser> userMap;
 
-    public ChatClient(String hostname, int serverPort, String userName) {
+    private ChatClient(String hostname, int serverPort, String userName) {
         this.userName = userName;
         this.tcpClient = new TCPClient(hostname, serverPort, this);
         this.userMap = new HashMap<>();
         this.udpClient = new UDPClient(this);
     }
 
-    public void startJob() {
+    private void startJob() {
         if (tcpClient != null && tcpClient.isConnected()) {
 
             /* Client starten. Ende, wenn quit eingegeben wurde */
@@ -61,7 +61,7 @@ public class ChatClient {
                         serviceRequested = false;
                     } else if(sentence.equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
                         System.out.println("Users:\n");
-                        this.userMap.entrySet().forEach(kv-> System.out.println(kv.getValue().getUserName()+"@"+kv.getKey()));
+                        this.userMap.forEach((key, value)-> System.out.println(value.getUserName()+"@"+key));
                     }
                     else {
                         /* Sende den String als UDP-Paket zum Server */
@@ -95,15 +95,15 @@ class UDPClient {
         }
     }
 
-    protected void writeToServer(String sendString) throws IOException {
+    void writeToServer(String sendString){
         /* Sende den String als UDP-Paket zum Server */
         /* String in Byte-Array umwandeln */
         byte[] sendData = sendString.getBytes(Config.CHARSET);
 
-        userMap.entrySet().stream().forEach(kv->{
+        userMap.forEach((key, value)->{
             /* Paket erzeugen */
             DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
-                    kv.getValue().getInetAddress(), Integer.parseInt(kv.getValue().getPort()));
+                    value.getInetAddress(), Integer.parseInt(value.getPort()));
             /* Senden des Pakets */
             try {
                 clientSocket.send(sendPacket);
@@ -113,7 +113,7 @@ class UDPClient {
         });
     }
 
-    protected void readFromServer() throws IOException {
+    void readFromServer() throws IOException {
         /* Liefere den naechsten String vom Server */
         /* Paket fuer den Empfang erzeugen */
         byte[] receiveData = new byte[BUFFER_SIZE];
@@ -134,7 +134,7 @@ class UDPClient {
         }
     }
 
-    protected String getUdpListenPort(){
+    String getUdpListenPort(){
         return String.valueOf(clientSocket.getLocalPort());
     }
 
@@ -167,7 +167,7 @@ class TCPClient extends Thread{
 
     }
 
-    protected void writeToServer(String request) throws IOException {
+    void writeToServer(String request) throws IOException {
         /* Sende eine Zeile (mit CRLF) zum Server */
         outToServer.write((request + '\r' + '\n').getBytes(Config.CHARSET));
     }
@@ -204,7 +204,7 @@ class TCPClient extends Thread{
         parent.userMap.remove(Long.parseLong(user));
     }
 
-    protected void readFromServer() throws IOException {
+    void readFromServer() throws IOException {
         /* Lies die Antwort (reply) vom Server */
         String next;
         while(!(next = inFromServer.readLine()).isEmpty()){
@@ -232,7 +232,7 @@ class TCPClient extends Thread{
         }
     }
 
-    protected void closeConnection(){
+    void closeConnection(){
         try {
             clientSocket.close();
         } catch (IOException ioEx){
@@ -240,7 +240,7 @@ class TCPClient extends Thread{
         }
     }
 
-    protected Boolean isConnected(){
+    Boolean isConnected(){
         return clientSocket != null && clientSocket.isConnected();
     }
 }
@@ -249,7 +249,7 @@ class UDPReadThread extends Thread{
 
     private final UDPClient UDPCLIENT;
     private boolean running;
-    protected UDPReadThread(UDPClient udpClient){
+    UDPReadThread(UDPClient udpClient){
         this.UDPCLIENT = udpClient;
         running = true;
     }
@@ -283,7 +283,7 @@ class TCPReadThread extends Thread {
     private final TCPClient TCPCLIENT;
     private boolean running;
 
-    protected TCPReadThread(TCPClient tcpClient) {
+    TCPReadThread(TCPClient tcpClient) {
         this.TCPCLIENT = tcpClient;
         running=true;
     }
