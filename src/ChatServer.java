@@ -42,8 +42,8 @@ class TCPServer{
     public TCPServer(int serverPort, int maxThreads) {
         this.serverPort = serverPort;
         this.workerThreadsSem = new Semaphore(maxThreads);
-        Thread udpServerThread = new UDPServerThread();
-        udpServerThread.start();
+        //Thread udpServerThread = new UDPServerThread();
+        //udpServerThread.start();
     }
 
     public void startServer() {
@@ -111,14 +111,16 @@ class TCPWorkerThread extends Thread {
 
             while (workerServiceRequested) {
                 /* String vom Client empfangen und in Grossbuchstaben umwandeln */
-                String name = readFromClient();
-                ChatServer.idChatUserMap.put(this.getId(), new ChatUser(name, socket.getInetAddress()));
-                /* Modifizierten String an Client senden */
-                //writeToClient(String.valueOf(currentThread().getId()));
-                writeToClient(initialSetupString(currentThread().getId()));
-                broadCastToAllUsers(userConnectedString(currentThread().getId()));
-                /* Test, ob Arbeitsthread beendet werden soll */
-                workerServiceRequested = false;
+                String[] userInfo = readFromClient().split(Config.INLINE_SEPERATOR);
+                if(userInfo.length==2){
+                    ChatServer.idChatUserMap.put(this.getId(), new ChatUser(userInfo[0], socket.getInetAddress(),userInfo[1]));
+                    /* Modifizierten String an Client senden */
+                    //writeToClient(String.valueOf(currentThread().getId()));
+                    writeToClient(initialSetupString(currentThread().getId()));
+                    broadCastToAllUsers(userConnectedString(currentThread().getId()));
+                    /* Test, ob Arbeitsthread beendet werden soll */
+                    workerServiceRequested = false;
+                }
             }
 
 
@@ -143,20 +145,20 @@ class TCPWorkerThread extends Thread {
     }
 
     private String connectedUsersMapToString(){
-        String res = ChatServer.idChatUserMap.entrySet().stream().map(kv -> kv.getKey()+Config.INLINE_SEPERATOR+kv.getValue().getUserName()+Config.INLINE_SEPERATOR+kv.getValue().getInetAddress()).collect(Collectors.joining(Config.UDP_SPLIT_OPERATOR));
+        String res = ChatServer.idChatUserMap.entrySet().stream().map(kv -> kv.getKey()+Config.INLINE_SEPERATOR+kv.getValue().getUserName()+Config.INLINE_SEPERATOR+kv.getValue().getInetAddressString()+Config.INLINE_SEPERATOR+kv.getValue().getPort()).collect(Collectors.joining(Config.UDP_SPLIT_OPERATOR));
         return res;
     }
 
     private String userDisconnectedString(Long id){
-        String res = Config.HEADLINE_START+Config.UDP_SPLIT_OPERATOR+Commands.DISCONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
+        String res = Config.HEADLINE_START+Config.INLINE_SEPERATOR+Commands.DISCONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
         //ChatUser user = ChatServer.idChatUserMap.get(id);
         return res+id+Config.UDP_SPLIT_OPERATOR;
     }
 
     private String userConnectedString(Long id){
-        String res = Config.HEADLINE_START+Config.UDP_SPLIT_OPERATOR+Commands.CONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
+        String res = Config.HEADLINE_START+Config.INLINE_SEPERATOR+Commands.CONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
         ChatUser user = ChatServer.idChatUserMap.get(id);
-        return res+id+Config.UDP_SPLIT_OPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddress()+Config.UDP_SPLIT_OPERATOR;
+        return res+id+Config.INLINE_SEPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddressString()+Config.INLINE_SEPERATOR+user.getPort()+Config.UDP_SPLIT_OPERATOR;
     }
 
     private void broadCastToAllUsers(String msg){
@@ -170,9 +172,9 @@ class TCPWorkerThread extends Thread {
     }
 
     private String initialSetupString(Long id){
-        String res = Config.HEADLINE_START+Config.UDP_SPLIT_OPERATOR+Commands.FULLTABLE.name()+Config.UDP_SPLIT_OPERATOR;
+        String res = Config.HEADLINE_START+Config.INLINE_SEPERATOR+Commands.FULLTABLE.name()+Config.UDP_SPLIT_OPERATOR;
         ChatUser user = ChatServer.idChatUserMap.get(id);
-        return res+id+Config.INLINE_SEPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddress()+Config.UDP_SPLIT_OPERATOR+connectedUsersMapToString()+Config.UDP_SPLIT_OPERATOR;
+        return res+id+Config.INLINE_SEPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddressString()+Config.INLINE_SEPERATOR+user.getPort()+Config.UDP_SPLIT_OPERATOR+connectedUsersMapToString()+Config.UDP_SPLIT_OPERATOR;
     }
 
     private String readFromClient() throws IOException {
@@ -191,116 +193,116 @@ class TCPWorkerThread extends Thread {
     }
 }
 
-class UDPServer {
-    private final static int SERVER_PORT = Config.UDP_SERVER_PORT;
-    private final static int BUFFER_SIZE = Config.UDP_BUFFER_SIZE;
-    private final static int USER_PORT = Config.UDP_CLIENT_PORT;
-    private final static String SPLIT_OPERATOR = Config.UDP_SPLIT_OPERATOR;
-
-    private InetAddress receivedIPAddress; // IP-Adresse des Clients
-    private int receivedPort; // Port auf dem Client
-    private DatagramSocket serverSocket; // UDP-Socketklasse
-    private boolean serviceRequested = true; // Anzeige, ob der Server-Dienst weiterhin benoetigt wird
-
-    public void startService() {
-        try {
-            /* UDP-Socket erzeugen (kein Verbindungsaufbau!)
-             * Socket wird an den ServerPort gebunden */
-            serverSocket = new DatagramSocket(SERVER_PORT);
-            System.out.println("UDP Server: Waiting for connection - listening UDP port " + SERVER_PORT);
-            while (serviceRequested) {
-                String message = readFromClient();
-
-                String reponse = "";
-                String[] requests = message.split(SPLIT_OPERATOR);
-                if (requests.length == 2){
-                    if(requests[1].trim().equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
-                        writeToClient(getAllUsersString());
-                    } else {
-                        reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
-                        writeToAllUsers(reponse);
-                    }
-                } else {
-                    writeToClient("Something went wrong.");
-                }
-            }
-
-            /* Socket schließen (freigeben) */
-            serverSocket.close();
-            System.out.println("Server shut down!");
-        } catch (SocketException e) {
-            System.err.println("Connection aborted by client!");
-        } catch (IOException e) {
-            System.err.println("Connection aborted by client!");
-        }
-
-        System.out.println("UDP Server stopped!");
-    }
-
-    private ChatUser getChatUser(String Id){
-        return ChatServer.idChatUserMap.get(Long.valueOf(Id));
-    }
-
-    private String getAllUsersString(){
-        return ChatServer.idChatUserMap.values().stream().map(ChatUser::getUserName).reduce("",(acc, userName) -> (acc.isEmpty() ? acc : acc + "\n") + userName);
-    }
-
-    private String readFromClient() throws IOException {
-        /* Liefere den nächsten String vom Server */
-        String receiveString = "";
-
-        /* Paket für den Empfang erzeugen */
-        byte[] receiveData = new byte[BUFFER_SIZE];
-        DatagramPacket receivePacket = new DatagramPacket(receiveData, BUFFER_SIZE);
-
-        /* Warte auf Empfang eines Pakets auf dem eigenen Server-Port */
-        serverSocket.receive(receivePacket);
-
-        receivedIPAddress = receivePacket.getAddress();
-        receivedPort = receivePacket.getPort();
-
-        /* Paket erhalten --> auspacken und analysieren */
-        receiveString = new String(receivePacket.getData(), Config.CHARSET);
-
-        return receiveString;
-    }
-
-    private void writeToClient(String sendString) throws IOException {
-        /* Sende den String als UDP-Paket zum Client */
-
-        /* String in Byte-Array umwandeln */
-        byte[] sendData = sendString.getBytes(Config.CHARSET);
-
-        /* Antwort-Paket erzeugen */
-        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
-                receivedIPAddress,
-                receivedPort);
-        /* Senden des Pakets */
-        serverSocket.send(sendPacket);
-
-        System.out.println("UDP Server has sent the message: " + sendString);
-    }
-
-    private void writeToAllUsers(String sendString) throws IOException {
-        /* String in Byte-Array umwandeln */
-        byte[] sendData = sendString.getBytes();
-        for(ChatUser chatUser : ChatServer.idChatUserMap.values()){
-            /* Antwort-Paket erzeugen */
-            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
-                    chatUser.getInetAddress(), USER_PORT);
-            /* Senden des Pakets */
-            serverSocket.send(sendPacket);
-        }
-
-        System.out.println("UDP Server has sent the message: " + sendString);
-    }
-}
-
-class UDPServerThread extends Thread {
-
-    public void run() {
-        UDPServer myServer = new UDPServer();
-        myServer.startService();
-    }
-
-}
+//class UDPServer {
+//    private final static int SERVER_PORT = Config.UDP_SERVER_PORT;
+//    private final static int BUFFER_SIZE = Config.UDP_BUFFER_SIZE;
+//    private final static int USER_PORT = Config.UDP_CLIENT_PORT;
+//    private final static String SPLIT_OPERATOR = Config.UDP_SPLIT_OPERATOR;
+//
+//    private InetAddress receivedIPAddress; // IP-Adresse des Clients
+//    private int receivedPort; // Port auf dem Client
+//    private DatagramSocket serverSocket; // UDP-Socketklasse
+//    private boolean serviceRequested = true; // Anzeige, ob der Server-Dienst weiterhin benoetigt wird
+//
+//    public void startService() {
+//        try {
+//            /* UDP-Socket erzeugen (kein Verbindungsaufbau!)
+//             * Socket wird an den ServerPort gebunden */
+//            serverSocket = new DatagramSocket(SERVER_PORT);
+//            System.out.println("UDP Server: Waiting for connection - listening UDP port " + SERVER_PORT);
+//            while (serviceRequested) {
+//                String message = readFromClient();
+//
+//                String reponse = "";
+//                String[] requests = message.split(SPLIT_OPERATOR);
+//                if (requests.length == 2){
+//                    if(requests[1].trim().equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
+//                        writeToClient(getAllUsersString());
+//                    } else {
+//                        reponse += requests[0]+ " - " + getChatUser(requests[0]).getUserName() + ": " + requests[1];
+//                        writeToAllUsers(reponse);
+//                    }
+//                } else {
+//                    writeToClient("Something went wrong.");
+//                }
+//            }
+//
+//            /* Socket schließen (freigeben) */
+//            serverSocket.close();
+//            System.out.println("Server shut down!");
+//        } catch (SocketException e) {
+//            System.err.println("Connection aborted by client!");
+//        } catch (IOException e) {
+//            System.err.println("Connection aborted by client!");
+//        }
+//
+//        System.out.println("UDP Server stopped!");
+//    }
+//
+//    private ChatUser getChatUser(String Id){
+//        return ChatServer.idChatUserMap.get(Long.valueOf(Id));
+//    }
+//
+//    private String getAllUsersString(){
+//        return ChatServer.idChatUserMap.values().stream().map(ChatUser::getUserName).reduce("",(acc, userName) -> (acc.isEmpty() ? acc : acc + "\n") + userName);
+//    }
+//
+//    private String readFromClient() throws IOException {
+//        /* Liefere den nächsten String vom Server */
+//        String receiveString = "";
+//
+//        /* Paket für den Empfang erzeugen */
+//        byte[] receiveData = new byte[BUFFER_SIZE];
+//        DatagramPacket receivePacket = new DatagramPacket(receiveData, BUFFER_SIZE);
+//
+//        /* Warte auf Empfang eines Pakets auf dem eigenen Server-Port */
+//        serverSocket.receive(receivePacket);
+//
+//        receivedIPAddress = receivePacket.getAddress();
+//        receivedPort = receivePacket.getPort();
+//
+//        /* Paket erhalten --> auspacken und analysieren */
+//        receiveString = new String(receivePacket.getData(), Config.CHARSET);
+//
+//        return receiveString;
+//    }
+//
+//    private void writeToClient(String sendString) throws IOException {
+//        /* Sende den String als UDP-Paket zum Client */
+//
+//        /* String in Byte-Array umwandeln */
+//        byte[] sendData = sendString.getBytes(Config.CHARSET);
+//
+//        /* Antwort-Paket erzeugen */
+//        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
+//                receivedIPAddress,
+//                receivedPort);
+//        /* Senden des Pakets */
+//        serverSocket.send(sendPacket);
+//
+//        System.out.println("UDP Server has sent the message: " + sendString);
+//    }
+//
+//    private void writeToAllUsers(String sendString) throws IOException {
+//        /* String in Byte-Array umwandeln */
+//        byte[] sendData = sendString.getBytes();
+//        for(ChatUser chatUser : ChatServer.idChatUserMap.values()){
+//            /* Antwort-Paket erzeugen */
+//            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
+//                    chatUser.getInetAddress(), USER_PORT);
+//            /* Senden des Pakets */
+//            serverSocket.send(sendPacket);
+//        }
+//
+//        System.out.println("UDP Server has sent the message: " + sendString);
+//    }
+//}
+//
+//class UDPServerThread extends Thread {
+//
+//    public void run() {
+//        UDPServer myServer = new UDPServer();
+//        myServer.startService();
+//    }
+//
+//}
