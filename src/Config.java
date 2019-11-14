@@ -16,13 +16,19 @@ public class Config {
         LOCALHOST = localHost;
     }
 
-    public static final int UDP_CLIENT_PORT = 53771;
     public static final InetAddress SERVER_ADDRESS = LOCALHOST;
-    public static final int UDP_SERVER_PORT = 9876;
     public static final int UDP_BUFFER_SIZE = 1024;
     public static final String UDP_SPLIT_OPERATOR = "\r\n";
+    public static final String TCP_END_OPERATOR = "\r\n";
+    public static final String TCP_PROTOCOL_HEADER_SPLIT_OPERATOR = "###";
+    public static final String TCP_HEADER_BODY_SPLIT_OPERATOR = "+++";
+    public static final String TCP_BODY_LIST_SPLIT_OPERATOR = ";;;";
+    public static final String TCP_BODY_INLINE_SPLIT_OPERATOR = ":::";
+    public static final String INLINE_SEPERATOR = "::";
+    public static final String HEADLINE_START = "myprotocol";
     public static final int TCP_SERVER_PORT = 56789;
     public static final String SHOW_ALL_USERS_COMMAND = "getUsers!";
+    public static final String QUIT_CHANNEL_COMMAND = "QUIT";
     public static final Charset CHARSET = StandardCharsets.US_ASCII;
 
 
