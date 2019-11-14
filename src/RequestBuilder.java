@@ -8,7 +8,6 @@ public class RequestBuilder {
     public RequestBuilder(String request){
         String[] protocolSplit = request.split(Config.TCP_PROTOCOL_HEADER_SPLIT_OPERATOR);
         if(protocolSplit.length == 2 && protocolSplit[0].equalsIgnoreCase(Config.HEADLINE_START)){
-            System.out.println(protocolSplit[1]);
             String[] headerSplit = protocolSplit[1].split(Config.TCP_HEADER_BODY_SPLIT_OPERATOR);
             if (headerSplit[0] != null){
                 String header = headerSplit[0];

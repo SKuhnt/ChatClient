@@ -123,13 +123,14 @@ class TCPWorkerThread extends Thread {
             /* Socket-Streams schliessen --> Verbindungsabbau */
             socket.close();
         } catch (IOException e) {
+            e.printStackTrace();
             System.err.println("Connection aborted by client!");
         } finally {
             System.out.println("TCP Worker Thread " + name + " stopped!");
             /* Platz fuer neuen Thread freigeben */
-            ChatServer.idChatUserMap.remove(this.getId());
+            ChatUser user = ChatServer.idChatUserMap.remove(this.getId());
             server.threadList.remove(this);
-            broadCastToAllUsers(userDisconnectedString(this.getId()));
+            broadCastToAllUsers(userDisconnectedString(this.getId(), user));
             server.workerThreadsSem.release();
             this.interrupt();
         }
@@ -139,8 +140,7 @@ class TCPWorkerThread extends Thread {
         return ChatServer.idChatUserMap.entrySet().stream().map(kv -> kv.getValue().createBody(kv.getKey())).collect(Collectors.toList());
     }
 
-    private String userDisconnectedString(Long id){
-        ChatUser user = ChatServer.idChatUserMap.get(id);
+    private String userDisconnectedString(Long id, ChatUser user){
         String body = user.createBody(id);
         return new RequestBuilder(Commands.DISCONNECTED, new String[]{body}).createRequest();
     }
@@ -189,9 +189,10 @@ class TCPWorkerThread extends Thread {
             if (command == null){
                 System.out.println("request error!");
             } else if (command.equals(Commands.QUIT)){
-                RequestBuilder sendReply = new RequestBuilder(Commands.QUIT_ACK, null);
+                //toDo Quit_ACK?
+                /*RequestBuilder sendReply = new RequestBuilder(Commands.QUIT_ACK, null);
                 String reply = sendReply.createRequest();
-                writeToClient(reply);
+                writeToClient(reply);*/
                 isRunning = false;
             }
         }
