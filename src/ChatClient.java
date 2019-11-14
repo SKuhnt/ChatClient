@@ -36,21 +36,22 @@ public class ChatClient {
             String sentence; // vom User uebergebener String
             boolean auth = true;
             boolean serviceRequested = true;
-
+            System.out.println("start");
             try {
                 UDPReadThread udpListener = new UDPReadThread(udpClient);
                 udpListener.start();
                 TCPReadThread tcpListener = new TCPReadThread(tcpClient);
                 while (auth) {
                     tcpClient.writeToServer(userName + Config.INLINE_SEPERATOR + udpClient.getUdpListenPort());
+                    System.out.println("write");
                     tcpClient.readFromServer();
-
+                    System.out.println("read");
                     if(!userId.isEmpty()){
                         auth = false;
                     }
                 }
                 tcpListener.start();
-
+                System.out.println("login finished");
                 /* Konsolenstream (Standardeingabe) initialisieren */
                 inFromUser = new Scanner(System.in);
                 while (serviceRequested) {
@@ -76,6 +77,7 @@ public class ChatClient {
                 tcpListener.shutDown();
                 udpListener.shutDown();
             } catch (IOException e) {
+                e.printStackTrace();
                 System.err.println("Connection aborted by server!");
             }
             System.out.println("TCP Client stopped!");
@@ -175,9 +177,13 @@ class TCPClient extends Thread{
     }
 
     private void readInitialSetup(String[] bodies) throws IOException {
+        System.out.println("y");
+        System.out.println(Arrays.toString(bodies));
         for (int i = 0; i < bodies.length; i++){
             String body = bodies[i];
             String[] userStringArray = body.split(Config.TCP_BODY_INLINE_SPLIT_OPERATOR);
+            System.out.println("x");
+            System.out.println(Arrays.toString(userStringArray));
             if (i == 0){
                 parent.userId = userStringArray[0];
             } else {
@@ -212,18 +218,20 @@ class TCPClient extends Thread{
 
     void readFromServer() throws IOException {
         String request = inFromServer.readLine();
-        RequestBuilder requestBuilder = new RequestBuilder(request);
-        Commands command = requestBuilder.getCommand();
-        if(command.equals(Commands.FULLTABLE)){
-            readInitialSetup(requestBuilder.body);
-        }
-        else if(command.equals(Commands.DISCONNECTED)){
-            deleteConnection(requestBuilder.body);
-        }
-        else if(command.equals(Commands.CONNECTED)){
-            readNewConnection(requestBuilder.body);
-        } else {
-            System.out.println("Command not found!");
+        if (!request.isEmpty()){
+            RequestBuilder requestBuilder = new RequestBuilder(request);
+            Commands command = requestBuilder.getCommand();
+            if(command.equals(Commands.FULLTABLE)){
+                readInitialSetup(requestBuilder.body);
+            }
+            else if(command.equals(Commands.DISCONNECTED)){
+                deleteConnection(requestBuilder.body);
+            }
+            else if(command.equals(Commands.CONNECTED)){
+                readNewConnection(requestBuilder.body);
+            } else {
+                System.out.println("Command not found!");
+            }
         }
     }
 

@@ -21,7 +21,7 @@ public class Config {
     public static final String UDP_SPLIT_OPERATOR = "\r\n";
     public static final String TCP_END_OPERATOR = "\r\n";
     public static final String TCP_PROTOCOL_HEADER_SPLIT_OPERATOR = "###";
-    public static final String TCP_HEADER_BODY_SPLIT_OPERATOR = "+++";
+    public static final String TCP_HEADER_BODY_SPLIT_OPERATOR = "~~~";
     public static final String TCP_BODY_LIST_SPLIT_OPERATOR = ";;;";
     public static final String TCP_BODY_INLINE_SPLIT_OPERATOR = ":::";
     public static final String INLINE_SEPERATOR = "::";

@@ -8,13 +8,14 @@ public class RequestBuilder {
     public RequestBuilder(String request){
         String[] protocolSplit = request.split(Config.TCP_PROTOCOL_HEADER_SPLIT_OPERATOR);
         if(protocolSplit.length == 2 && protocolSplit[0].equalsIgnoreCase(Config.HEADLINE_START)){
+            System.out.println(protocolSplit[1]);
             String[] headerSplit = protocolSplit[1].split(Config.TCP_HEADER_BODY_SPLIT_OPERATOR);
             if (headerSplit[0] != null){
                 String header = headerSplit[0];
                 command = Commands.valueOf(header);
                 if (headerSplit.length == 2){
                     String bodys = headerSplit[1];
-                    this.body = bodys.split(Config.TCP_BODY_INLINE_SPLIT_OPERATOR);
+                    this.body = bodys.split(Config.TCP_BODY_LIST_SPLIT_OPERATOR);
                 }
             }
         }
@@ -38,7 +39,7 @@ public class RequestBuilder {
     }
 
     private String prepareBody(){
-        return String.join(Config.TCP_BODY_LIST_SPLIT_OPERATOR, body);
+        return body == null ? "" : String.join(Config.TCP_BODY_LIST_SPLIT_OPERATOR, body);
     }
 
 }

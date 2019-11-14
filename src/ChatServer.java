@@ -119,7 +119,7 @@ class TCPWorkerThread extends Thread {
             }
 
             waitForCommands();
-
+            System.out.println("quitted");
             /* Socket-Streams schliessen --> Verbindungsabbau */
             socket.close();
         } catch (IOException e) {
@@ -140,15 +140,15 @@ class TCPWorkerThread extends Thread {
     }
 
     private String userDisconnectedString(Long id){
-        String res = Config.HEADLINE_START+Config.INLINE_SEPERATOR+Commands.DISCONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
-        //ChatUser user = ChatServer.idChatUserMap.get(id);
-        return res+id+Config.UDP_SPLIT_OPERATOR;
+        ChatUser user = ChatServer.idChatUserMap.get(id);
+        String body = user.createBody(id);
+        return new RequestBuilder(Commands.DISCONNECTED, new String[]{body}).createRequest();
     }
 
     private String userConnectedString(Long id){
-        String res = Config.HEADLINE_START+Config.INLINE_SEPERATOR+Commands.CONNECTED.name()+Config.UDP_SPLIT_OPERATOR;
         ChatUser user = ChatServer.idChatUserMap.get(id);
-        return res+id+Config.INLINE_SEPERATOR+user.getUserName()+Config.INLINE_SEPERATOR+user.getInetAddressString()+Config.INLINE_SEPERATOR+user.getPort()+Config.UDP_SPLIT_OPERATOR;
+        String body = user.createBody(id);
+        return new RequestBuilder(Commands.CONNECTED, new String[]{body}).createRequest();
     }
 
     private void broadCastToAllUsers(String msg){
