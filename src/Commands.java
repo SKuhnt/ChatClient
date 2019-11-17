@@ -3,6 +3,7 @@ public enum Commands {
     DISCONNECTED,
     CONNECTED,
     QUIT,
-    QUIT_ACK;
+    AUTH,
+    ERROR;
 
 }

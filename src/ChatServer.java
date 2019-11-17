@@ -106,20 +106,29 @@ class TCPWorkerThread extends Thread {
 
             while (workerServiceRequested) {
                 /* String vom Client empfangen und in Grossbuchstaben umwandeln */
-                String[] userInfo = readFromClient().split(Config.INLINE_SEPERATOR);
-                if(userInfo.length==2){
-                    ChatServer.idChatUserMap.put(this.getId(), new ChatUser(userInfo[0], socket.getInetAddress(),userInfo[1]));
-                    /* Modifizierten String an Client senden */
-                    //writeToClient(String.valueOf(currentThread().getId()));
-                    writeToClient(initialSetupString(currentThread().getId()));
-                    broadCastToAllUsers(userConnectedString(currentThread().getId()));
-                    /* Test, ob Arbeitsthread beendet werden soll */
-                    workerServiceRequested = false;
+                String request = readFromClient();
+                RequestBuilder userRequest = new RequestBuilder(request);
+                Commands command = userRequest.getCommand();
+                String[] bodies = userRequest.getBody();
+                if(command != null && command.equals(Commands.AUTH) && bodies.length == 1){
+                    String userInfos = bodies[0];
+                    String[] userInfo = userInfos.split(Config.TCP_BODY_INLINE_SPLIT_OPERATOR);
+                    if(userInfo.length == 2){
+                        ChatServer.idChatUserMap.put(this.getId(), new ChatUser(userInfo[0], socket.getInetAddress(), userInfo[1]));
+                        writeToClient(initialSetupString(currentThread().getId()));
+                        broadCastToAllUsers(userConnectedString(currentThread().getId()));
+                        workerServiceRequested = false;
+                    }
+                }
+                if(workerServiceRequested){
+                    RequestBuilder requestBuilder = new RequestBuilder(Commands.ERROR, new String[]{"Something went wrong when auth"});
+                    String errorResponse = requestBuilder.createRequest();
+                    writeToClient(errorResponse);
+                    System.out.println("auth failed.");
                 }
             }
 
             waitForCommands();
-            System.out.println("quitted");
             /* Socket-Streams schliessen --> Verbindungsabbau */
             socket.close();
         } catch (IOException e) {
@@ -182,17 +191,12 @@ class TCPWorkerThread extends Thread {
         boolean isRunning = true;
         while (isRunning){
             /* Lies die naechste Anfrage-Zeile (request) vom Client */
-            String request = inFromClient.readLine();
-            System.out.println("TCP Worker Thread " + name + " detected job: " + request);
+            String request = readFromClient();
             RequestBuilder userRequest = new RequestBuilder(request);
             Commands command = userRequest.getCommand();
             if (command == null){
                 System.out.println("request error!");
             } else if (command.equals(Commands.QUIT)){
-                //toDo Quit_ACK?
-                /*RequestBuilder sendReply = new RequestBuilder(Commands.QUIT_ACK, null);
-                String reply = sendReply.createRequest();
-                writeToClient(reply);*/
                 isRunning = false;
             }
         }
@@ -200,7 +204,7 @@ class TCPWorkerThread extends Thread {
 
     private void writeToClient(String reply) throws IOException {
         /* Sende den String als Antwortzeile (mit CRLF) zum Client */
-        outToClient.writeBytes(reply + '\r' + '\n');
+        outToClient.writeBytes(reply);
         System.out.println("TCP Worker Thread " + name +
                 " has written the message: " + reply);
     }

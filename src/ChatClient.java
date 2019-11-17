@@ -41,7 +41,8 @@ public class ChatClient {
                 udpListener.start();
                 TCPReadThread tcpListener = new TCPReadThread(tcpClient);
                 while (auth) {
-                    tcpClient.writeToServer(userName + Config.INLINE_SEPERATOR + udpClient.getUdpListenPort());
+                    RequestBuilder requestBuilder = new RequestBuilder(Commands.AUTH, new String[]{userName + Config.TCP_BODY_INLINE_SPLIT_OPERATOR + udpClient.getUdpListenPort()});
+                    tcpClient.writeToServer(requestBuilder.createRequest());
                     tcpClient.readFromServer();
                     if(!userId.isEmpty()){
                         auth = false;
@@ -169,7 +170,7 @@ class TCPClient extends Thread{
 
     void writeToServer(String request) throws IOException {
         /* Sende eine Zeile (mit CRLF) zum Server */
-        outToServer.write((request + '\r' + '\n').getBytes(Config.CHARSET));
+        outToServer.write((request).getBytes(Config.CHARSET));
     }
 
     private void readInitialSetup(String[] bodies) throws IOException {
