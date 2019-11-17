@@ -24,12 +24,10 @@ public class Config {
     public static final String TCP_HEADER_BODY_SPLIT_OPERATOR = "~~~";
     public static final String TCP_BODY_LIST_SPLIT_OPERATOR = ";;;";
     public static final String TCP_BODY_INLINE_SPLIT_OPERATOR = ":::";
-    public static final String INLINE_SEPERATOR = "::";
     public static final String HEADLINE_START = "myprotocol";
     public static final int TCP_SERVER_PORT = 56789;
     public static final String SHOW_ALL_USERS_COMMAND = "getUsers!";
-    public static final String QUIT_CHANNEL_COMMAND = "QUIT";
-    public static final Charset CHARSET = StandardCharsets.US_ASCII;
+    public static final Charset CHARSET = StandardCharsets.UTF_8;
 
 
 
