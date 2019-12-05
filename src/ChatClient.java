@@ -1,35 +1,30 @@
 import java.io.*;
 import java.net.*;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ChatClient {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws UnknownHostException {
         /* Test: Erzeuge Client und starte ihn. */
-        ChatClient myClient = new ChatClient(String.valueOf(Config.SERVER_ADDRESS.getHostAddress()), Config.TCP_SERVER_PORT, args[0]);
+        ChatClient myClient = new ChatClient(Config.LOCALHOST, 8192, args[0]);
         myClient.startJob();
     }
 
     public String userId = "";
     private final String userName;
-    private final TCPClient tcpClient;
     private final UDPClient udpClient;
-    public final Map<Long,ChatUser> userMap;
+    public List<String> userList;
 
-    private ChatClient(String hostname, int serverPort, String userName) {
+    private ChatClient(InetAddress inetAddress, int serverPort, String userName) {
         this.userName = userName;
-        this.tcpClient = new TCPClient(hostname, serverPort, this);
-        this.userMap = new ConcurrentHashMap<>();
-        this.udpClient = new UDPClient(this);
+        this.userList = new CopyOnWriteArrayList<>();
+        this.udpClient = new UDPClient(this, serverPort, inetAddress);
     }
 
     private void startJob() {
-        if (tcpClient != null && tcpClient.isConnected()) {
-
             /* Client starten. Ende, wenn quit eingegeben wurde */
             //String userId = "";
             Scanner inFromUser;
@@ -37,18 +32,21 @@ public class ChatClient {
             boolean auth = true;
             boolean serviceRequested = true;
             try {
-                UDPReadThread udpListener = new UDPReadThread(udpClient);
-                udpListener.start();
-                TCPReadThread tcpListener = new TCPReadThread(tcpClient);
                 while (auth) {
-                    RequestBuilder requestBuilder = new RequestBuilder(Commands.AUTH, new String[]{userName + Config.TCP_BODY_INLINE_SPLIT_OPERATOR + udpClient.getUdpListenPort()});
-                    tcpClient.writeToServer(requestBuilder.createRequest());
-                    tcpClient.readFromServer();
+                    udpClient.writeToServer("/c/" + userName + Config.UDP_END_OPERATOR);
+                    String answer = udpClient.readFromServer();
+                    System.out.println(answer);
+                    if (answer.contains("/c/") && answer.contains(Config.UDP_END_OPERATOR)){
+                        userId = answer.substring(answer.indexOf("/c/") + 3, answer.indexOf(Config.UDP_END_OPERATOR));
+                    }
                     if(!userId.isEmpty()){
                         auth = false;
                     }
                 }
-                tcpListener.start();
+
+                UDPReadThread udpListener = new UDPReadThread(udpClient);
+                udpListener.start();
+
                 /* Konsolenstream (Standardeingabe) initialisieren */
                 inFromUser = new Scanner(System.in);
                 while (serviceRequested) {
@@ -57,21 +55,20 @@ public class ChatClient {
 
                     /* Test, ob Client beendet werden soll */
                     if (sentence.equalsIgnoreCase(Commands.QUIT.name())) {
-                        tcpClient.writeToServer(new RequestBuilder(Commands.QUIT, null).createRequest());
+                        udpClient.writeToServer("/d/" + userId + Config.UDP_END_OPERATOR);
                         serviceRequested = false;
                     } else if(sentence.equalsIgnoreCase(Config.SHOW_ALL_USERS_COMMAND)){
                         System.out.println("Users:\n");
-                        this.userMap.forEach((key, value)-> System.out.println(value.getUserName()+"@"+key));
+                        System.out.println(String.join("\n", userList));
                     }
                     else {
                         /* Sende den String als UDP-Paket zum Server */
-                        udpClient.writeToServer(userId + Config.UDP_SPLIT_OPERATOR + sentence);
+                        udpClient.writeToServer("/m/" + userName + ": " + sentence + Config.UDP_END_OPERATOR);
                     }
                 }
 
                 /* Socket-Streams schliessen --> Verbindungsabbau */
                 inFromUser.close();
-                tcpListener.shutDown();
                 udpListener.shutDown();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -79,42 +76,38 @@ public class ChatClient {
             }
             System.out.println("TCP Client stopped!");
         }
-    }
 }
 
 class UDPClient {
     private static final int BUFFER_SIZE = Config.UDP_BUFFER_SIZE;
     private DatagramSocket clientSocket; // UDP-Socketklasse
-    private final Map<Long,ChatUser> userMap;
+    public ChatClient chatClient;
 
-    UDPClient(ChatClient parent){
-        this.userMap = parent.userMap;
+    UDPClient(ChatClient chatClient, int port, InetAddress inetAddress){
         try {
-            clientSocket = new DatagramSocket();
+            this.chatClient = chatClient;
+            clientSocket = new DatagramSocket(port, inetAddress);
         } catch (Exception ex){
+            ex.printStackTrace();
             //todo handle exception
         }
     }
 
-    void writeToServer(String sendString){
+    void writeToServer(String sendString) throws UnknownHostException {
         /* Sende den String als UDP-Paket zu allen Clients */
         /* String in Byte-Array umwandeln */
         byte[] sendData = sendString.getBytes(Config.CHARSET);
-
-        userMap.forEach((key, value)->{
             /* Paket erzeugen */
-            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
-                    value.getInetAddress(), Integer.parseInt(value.getPort()));
-            /* Senden des Pakets */
-            try {
-                clientSocket.send(sendPacket);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
+        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, InetAddress.getByName("LAB26"), 8192);
+        /* Senden des Pakets */
+        try {
+            clientSocket.send(sendPacket);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    void readFromServer() throws IOException {
+    String readFromServer() throws IOException {
         /* Liefere den naechsten String vom Server */
         /* Paket fuer den Empfang erzeugen */
         byte[] receiveData = new byte[BUFFER_SIZE];
@@ -125,119 +118,11 @@ class UDPClient {
 
         /* Paket wurde empfangen --> auspacken und Inhalt anzeigen */
         String receiveString = new String(receivePacket.getData(), Config.CHARSET);
-        String[] headerAndPayload = receiveString.split(Config.UDP_SPLIT_OPERATOR);
-        ChatUser user;
-        if(headerAndPayload.length > 1 && (user = userMap.get(Long.parseLong(headerAndPayload[0]))) != null){
-            System.out.println(user.getUserName()+": "+headerAndPayload[1]);
-        }
-        else{
-            throw new IOException("could not find chatuser in string: "+receiveString);
-        }
-    }
-
-    String getUdpListenPort(){
-        return String.valueOf(clientSocket.getLocalPort());
+        return receiveString;
     }
 
     public void closeConnection() {
         clientSocket.close();
-    }
-}
-
-class TCPClient extends Thread{
-    private Socket clientSocket; // TCP-Standard-Socketklasse
-    private DataOutputStream outToServer; // Ausgabestream zum Server
-    private BufferedReader inFromServer; // Eingabestream vom Server
-    private ChatClient parent;
-
-    public TCPClient(String hostname, int serverPort, ChatClient parent) {
-        try {
-            this.parent=parent;
-            /* Socket erzeugen --> Verbindungsaufbau mit dem Server */
-            clientSocket = new Socket(hostname, serverPort);
-
-            /* Socket-Basisstreams durch spezielle Streams filtern */
-            outToServer = new DataOutputStream(clientSocket.getOutputStream());
-            inFromServer = new BufferedReader(new InputStreamReader(
-                    clientSocket.getInputStream(),Config.CHARSET));
-
-            /* Socket-Streams schliessen --> Verbindungsabbau */
-        } catch (IOException e) {
-            System.err.println("Connection aborted by server!");
-        }
-
-    }
-
-    void writeToServer(String request) throws IOException {
-        /* Sende eine Zeile (mit CRLF) zum Server */
-        outToServer.write((request).getBytes(Config.CHARSET));
-    }
-
-    private void readInitialSetup(String[] bodies) throws IOException {
-        for (int i = 0; i < bodies.length; i++){
-            String body = bodies[i];
-            String[] userStringArray = body.split(Config.TCP_BODY_INLINE_SPLIT_OPERATOR);
-            if (i == 0){
-                parent.userId = userStringArray[0];
-            } else {
-                addUser(userStringArray);
-            }
-        }
-    }
-
-    private void readNewConnection(String[] bodies) throws IOException {
-        for (String body : bodies) {
-            String[] userStringArray = body.split(Config.TCP_BODY_INLINE_SPLIT_OPERATOR);
-            addUser(userStringArray);
-        }
-    }
-
-    private void addUser(String[] userAry) throws IOException {
-        if(userAry.length==4){
-            parent.userMap.put(Long.parseLong(userAry[0]),new ChatUser(userAry[1],InetAddress.getByName(userAry[2]),userAry[3]));
-        }
-        else{
-            throw new IOException("Line is not a user: " + Arrays.toString(userAry));
-        }
-    }
-
-    private void deleteConnection(String[] bodies) throws IOException {
-        for (String body : bodies) {
-            String[] userStringArray = body.split(Config.TCP_BODY_INLINE_SPLIT_OPERATOR);
-            String userId = userStringArray[0];
-            parent.userMap.remove(Long.parseLong(userId));
-        }
-    }
-
-    void readFromServer() throws IOException {
-        String request = inFromServer.readLine();
-        if (!request.isEmpty()){
-            RequestBuilder requestBuilder = new RequestBuilder(request);
-            Commands command = requestBuilder.getCommand();
-            if(command.equals(Commands.FULLTABLE)){
-                readInitialSetup(requestBuilder.body);
-            }
-            else if(command.equals(Commands.DISCONNECTED)){
-                deleteConnection(requestBuilder.body);
-            }
-            else if(command.equals(Commands.CONNECTED)){
-                readNewConnection(requestBuilder.body);
-            } else {
-                System.out.println("Command not found!");
-            }
-        }
-    }
-
-    void closeConnection(){
-        try {
-            clientSocket.close();
-        } catch (IOException ioEx){
-            throw new IllegalArgumentException("Unexpected End");
-        }
-    }
-
-    Boolean isConnected(){
-        return clientSocket != null && clientSocket.isConnected();
     }
 }
 
@@ -260,7 +145,17 @@ class UDPReadThread extends Thread{
     public void run() {
         try {
             while (running){
-                this.UDPCLIENT.readFromServer();
+                String answer = this.UDPCLIENT.readFromServer();
+                if(answer.startsWith("/i/")){
+                    this.UDPCLIENT.writeToServer("/i/" + this.UDPCLIENT.chatClient.userId + Config.UDP_END_OPERATOR);
+                } else if(answer.startsWith("/u/")) {
+                    String message = answer.substring(answer.indexOf("/u/") + 3, answer.indexOf(Config.UDP_END_OPERATOR));
+                    String[] userNames = message.split("/n/");
+                    UDPCLIENT.chatClient.userList = new CopyOnWriteArrayList<>(Arrays.asList(userNames));
+                } else if(answer.startsWith("/m/")){
+                    String message = answer.substring(answer.indexOf("/m/") + 3, answer.indexOf(Config.UDP_END_OPERATOR));
+                    System.out.println(message);
+                }
             }
         } catch (SocketException socketEx){
            if (running){
@@ -268,40 +163,6 @@ class UDPReadThread extends Thread{
                throw new IllegalArgumentException("Unexpected End");
            }
         } catch (Exception ex){
-            ex.printStackTrace();
-            //todo handle exception
-        }
-    }
-}
-
-class TCPReadThread extends Thread {
-
-    private final TCPClient TCPCLIENT;
-    private boolean running;
-
-    TCPReadThread(TCPClient tcpClient) {
-        this.TCPCLIENT = tcpClient;
-        running=true;
-    }
-
-    public void shutDown(){
-        running = false;
-        TCPCLIENT.closeConnection();
-        this.interrupt();
-    }
-
-    @Override
-    public void run() {
-        try {
-            while (running) {
-                this.TCPCLIENT.readFromServer();
-            }
-        } catch (SocketException socketEx){
-            if (running){
-                socketEx.printStackTrace();
-                throw new IllegalArgumentException("Unexpected End");
-            }
-        }catch (Exception ex) {
             ex.printStackTrace();
             //todo handle exception
         }
